@@ -1,38 +1,32 @@
-# Lista vuota
-lista_spesa = []
+import streamlit as st
 
-print("Benvenuto nella tua lista della spesa!")
+# Inizializza la lista nella sessione
+if "lista" not in st.session_state:
+    st.session_state.lista = []
 
-while True:
-    print("\nScegli un'opzione:")
-    print("1. Aggiungi un elemento")
-    print("2. Rimuovi un elemento")
-    print("3. Mostra la lista")
-    print("4. Esci")
+st.title("🛒 Lista della Spesa")
 
-    scelta = input("Inserisci il numero della tua scelta: ")
-
-    if scelta == "1":
-        item = input("Cosa vuoi aggiungere? ")
-        lista_spesa.append(item)
-        print(f"{item} aggiunto alla lista.")
-    
-    elif scelta == "2":
-        item = input("Cosa vuoi rimuovere? ")
-        if item in lista_spesa:
-            lista_spesa.remove(item)
-            print(f"{item} rimosso dalla lista.")
-        else:
-            print(f"{item} non è nella lista.")
-    
-    elif scelta == "3":
-        print("\nEcco la tua lista della spesa:")
-        for i, item in enumerate(lista_spesa, start=1):
-            print(f"{i}. {item}")
-    
-    elif scelta == "4":
-        print("Arrivederci!")
-        break
-    
+# Aggiunta elementi
+item = st.text_input("Aggiungi un elemento alla lista:")
+if st.button("Aggiungi"):
+    if item:
+        st.session_state.lista.append(item)
+        st.success(f"{item} aggiunto!")
     else:
-        print("Scelta non valida.")
+        st.warning("Inserisci qualcosa prima di cliccare!")
+
+# Mostra la lista
+st.subheader("📋 Lista attuale:")
+if st.session_state.lista:
+    for i, el in enumerate(st.session_state.lista, start=1):
+        st.write(f"{i}. {el}")
+else:
+    st.info("La lista è vuota.")
+
+# Rimozione
+st.subheader("❌ Rimuovi un elemento:")
+da_rimuovere = st.selectbox("Scegli cosa vuoi rimuovere", [""] + st.session_state.lista)
+if st.button("Rimuovi"):
+    if da_rimuovere and da_rimuovere in st.session_state.lista:
+        st.session_state.lista.remove(da_rimuovere)
+        st.success(f"{da_rimuovere} rimosso!")
