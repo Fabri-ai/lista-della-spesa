@@ -1,3 +1,54 @@
+import streamlit as st
+import pandas as pd
+from datetime import datetime
+
+st.set_page_config(page_title="Lista della Spesa Fab & Vik", page_icon="🛒")
+
+# 👥 Credenziali
+UTENTI = {
+    "fabrizio": "fabridig",
+    "vittoria": "vitbarb"
+}
+
+# 📁 Percorso file CSV condiviso
+PERCORSO_FILE = "lista_spesa.csv"
+
+# 📦 Carica lista
+def carica_lista():
+    try:
+        df = pd.read_csv(PERCORSO_FILE)
+        df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
+        df["Costo"] = pd.to_numeric(df["Costo"], errors="coerce").fillna(0.0)
+        return df
+    except FileNotFoundError:
+        return pd.DataFrame(columns=["Prodotto", "Costo", "Data"])
+
+# 💾 Salva lista
+def salva_lista(df):
+    df.to_csv(PERCORSO_FILE, index=False)
+
+# 🧾 LOGIN
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = ""
+
+st.title("🛍️ Lista della Spesa Fab & Vik")
+
+if not st.session_state.logged_in:
+    with st.form("login"):
+        st.subheader("🔐 Login")
+        username = st.text_input("👤 Nome utente")
+        password = st.text_input("🔑 Password", type="password")
+        submitted = st.form_submit_button("Entra")
+
+        if submitted:
+            if username in UTENTI and UTENTI[username] == password:
+                st.session_state.logged_in = True
+                st.session_state.username = username
+                st.success(f"Benvenuto, {username}!")
+                st.experimental_rerun()
+            else:
+                st.error("Credenziali non valide.")
 else:
     st.sidebar.success(f"👋 Ciao, {st.session_state.username}")
 
@@ -19,14 +70,14 @@ else:
             nuova_riga = {
                 "Prodotto": prodotto,
                 "Costo": float(costo) if costo else 0.0,
-                "Data": data.strftime("%Y-%m-%d") if data else ""
+                "Data": data.strftime("%Y-%m-%d")
             }
             df_lista = pd.concat([df_lista, pd.DataFrame([nuova_riga])], ignore_index=True)
             salva_lista(df_lista)
             st.success(f"{prodotto} aggiunto!")
             st.rerun()
         else:
-            st.warning("Il prodotto è obbligatorio.")
+            st.warning("⚠️ Il nome del prodotto è obbligatorio.")
 
     st.divider()
     st.subheader("📋 Modifica la lista (clicca sulle celle)")
@@ -39,12 +90,11 @@ else:
         colonna_ordinamento = st.selectbox("Ordina per", options=["Prodotto", "Costo", "Data"], index=2)
         ordine_decrescente = st.checkbox("📉 Ordine decrescente", value=False)
 
-        df_lista["Costo"] = pd.to_numeric(df_lista["Costo"], errors="coerce").fillna(0.0)
         df_lista["Data"] = pd.to_datetime(df_lista["Data"], errors="coerce")
-
+        df_lista["Costo"] = pd.to_numeric(df_lista["Costo"], errors="coerce").fillna(0.0)
         df_lista = df_lista.sort_values(by=colonna_ordinamento, ascending=not ordine_decrescente)
 
-        # 👇 Tabella tipo Excel
+        # 📝 Editor tipo Excel
         df_modificato = st.data_editor(
             df_lista,
             column_config={
@@ -61,14 +111,10 @@ else:
             st.success("Lista aggiornata con successo!")
             st.rerun()
 
-        st.divider()
-
-        # 📈 GRAFICO SPESE PER DATA
+        # 📈 Grafico
         st.subheader("📈 Totale spese per giorno")
-
-        if not df_lista.empty:
-            spese_per_data = df_lista.groupby("Data")["Costo"].sum().reset_index()
-            st.line_chart(spese_per_data.rename(columns={"Data": "index"}).set_index("index"))
+        spese_per_data = df_lista.groupby("Data")["Costo"].sum().reset_index()
+        st.line_chart(spese_per_data.rename(columns={"Data": "index"}).set_index("index"))
 
         # 🗑️ Rimozione
         st.subheader("❌ Rimuovi un prodotto")
