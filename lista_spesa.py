@@ -7,7 +7,7 @@ utenti = {
     "admin": "adminpass"
 }
 
-st.title("🛒 Lista della spesa con login")
+st.title("🛒 Lista Fab & Vik")
 
 # Inizializza stato sessione
 if "logged_in" not in st.session_state:
@@ -27,7 +27,7 @@ if not st.session_state.logged_in:
             st.session_state.logged_in = True
             st.session_state.username = username
             st.success(f"Benvenuto, {username}!")
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Credenziali errate.")
 else:
@@ -36,7 +36,7 @@ else:
     if st.sidebar.button("🔓 Logout"):
         st.session_state.logged_in = False
         st.session_state.username = ""
-        st.experimental_rerun()
+        st.rerun()
 
     # BLOCCO LISTA SPESA
     st.header("📋 Lista della spesa personale")
