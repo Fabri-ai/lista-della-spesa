@@ -14,8 +14,8 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
     st.session_state.username = ""
-if "liste_utente" not in st.session_state:
-    st.session_state.liste_utente = {}
+if "lista" not in st.session_state:
+    st.session_state.lista = []
 
 # BLOCCO LOGIN
 if not st.session_state.logged_in:
@@ -41,11 +41,12 @@ else:
     # BLOCCO LISTA SPESA
     st.header("📋 Lista della spesa personale")
 
-    user = st.session_state.username
-    if user not in st.session_state.liste_utente:
-        st.session_state.liste_utente[user] = []
+   # Inizializza la lista condivisa (se non esiste)
+if "lista" not in st.session_state:
+    st.session_state.lista = []
 
-    lista = st.session_state.liste_utente[user]
+lista = st.session_state.lista
+
 
     nuovo = st.text_input("Aggiungi un elemento")
     if st.button("➕ Aggiungi"):
