@@ -1,61 +1,67 @@
 import streamlit as st
 
-# Dizionario utenti (username: password)
+# Utenti autorizzati
 utenti = {
-    "fabrizio": "fabridig",
-    "vittoria": "vitbarb",
+    "mario": "1234",
+    "lucia": "ciao",
     "admin": "adminpass"
 }
 
-# Login
-st.title("🔒 Login")
-username = st.text_input("Nome utente")
-password = st.text_input("Password", type="password")
+st.title("🛒 Lista della spesa con login")
 
-# Se credenziali corrette
-if st.button("Accedi"):
-    if utenti.get(username) == password:
-        st.session_state["logged_in"] = True
-        st.session_state["username"] = username
-        st.success(f"Benvenuto, {username}!")
-    else:
-        st.error("Credenziali errate.")
+# Inizializza stato sessione
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
+if "liste_utente" not in st.session_state:
+    st.session_state.liste_utente = {}
 
-# Se già loggato, mostra il contenuto dell'app
-if st.session_state.get("logged_in"):
-    st.markdown("---")
-    st.subheader(f"Ciao {st.session_state['username']}! Ecco la tua lista della spesa:")
+# BLOCCO LOGIN
+if not st.session_state.logged_in:
+    username = st.text_input("👤 Nome utente")
+    password = st.text_input("🔑 Password", type="password")
 
-    # Lista iniziale
-    if "lista" not in st.session_state:
-        st.session_state.lista = []
-
-    # Aggiunta
-    item = st.text_input("Aggiungi un elemento:")
-    if st.button("Aggiungi"):
-        if item:
-            st.session_state.lista.append(item)
-            st.success(f"{item} aggiunto!")
+    if st.button("Accedi"):
+        if utenti.get(username) == password:
+            st.session_state.logged_in = True
+            st.session_state.username = username
+            st.success(f"Benvenuto, {username}!")
+            st.experimental_rerun()
         else:
-            st.warning("Inserisci qualcosa!")
+            st.error("Credenziali errate.")
+else:
+    # BLOCCO LOGOUT
+    st.sidebar.success(f"Sei loggato come {st.session_state.username}")
+    if st.sidebar.button("🔓 Logout"):
+        st.session_state.logged_in = False
+        st.session_state.username = ""
+        st.experimental_rerun()
 
-    # Mostra lista
-    st.subheader("📋 Lista attuale:")
-    if st.session_state.lista:
-        for i, el in enumerate(st.session_state.lista, start=1):
+    # BLOCCO LISTA SPESA
+    st.header("📋 Lista della spesa personale")
+
+    user = st.session_state.username
+    if user not in st.session_state.liste_utente:
+        st.session_state.liste_utente[user] = []
+
+    lista = st.session_state.liste_utente[user]
+
+    nuovo = st.text_input("Aggiungi un elemento")
+    if st.button("➕ Aggiungi"):
+        if nuovo:
+            lista.append(nuovo)
+            st.success(f"{nuovo} aggiunto!")
+
+    if lista:
+        st.subheader("📝 Lista attuale:")
+        for i, el in enumerate(lista, 1):
             st.write(f"{i}. {el}")
     else:
         st.info("La lista è vuota.")
 
-    # Rimozione
-    st.subheader("❌ Rimuovi un elemento:")
-
-    if st.button("🔓 Logout"):
-    st.session_state.logged_in = False
-    st.session_state.username = ""
-    st.experimental_rerun()
-    da_rimuovere = st.selectbox("Scegli cosa vuoi rimuovere", [""] + st.session_state.lista)
-    if st.button("Rimuovi"):
-        if da_rimuovere in st.session_state.lista:
-            st.session_state.lista.remove(da_rimuovere)
+    da_rimuovere = st.selectbox("❌ Rimuovi un elemento", [""] + lista)
+    if st.button("🗑️ Rimuovi"):
+        if da_rimuovere in lista:
+            lista.remove(da_rimuovere)
             st.success(f"{da_rimuovere} rimosso!")
