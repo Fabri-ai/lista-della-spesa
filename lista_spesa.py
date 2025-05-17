@@ -42,27 +42,27 @@ else:
     st.header("📋 Lista della spesa personale")
 
    # Inizializza la lista condivisa (se non esiste)
-if "lista" not in st.session_state:
-    st.session_state.lista = []
+    if "lista" not in st.session_state:
+        st.session_state.lista = []
 
 lista = st.session_state.lista
 
 
-    nuovo = st.text_input("Aggiungi un elemento")
-    if st.button("➕ Aggiungi"):
-        if nuovo:
-            lista.append(nuovo)
-            st.success(f"{nuovo} aggiunto!")
+nuovo = st.text_input("Aggiungi un elemento")
+if st.button("➕ Aggiungi"):
+    if nuovo:
+        lista.append(nuovo)
+        st.success(f"{nuovo} aggiunto!")
 
-    if lista:
-        st.subheader("📝 Lista attuale:")
-        for i, el in enumerate(lista, 1):
-            st.write(f"{i}. {el}")
-    else:
-        st.info("La lista è vuota.")
+if lista:
+    st.subheader("📝 Lista attuale:")
+    for i, el in enumerate(lista, 1):
+        st.write(f"{i}. {el}")
+else:
+    st.info("La lista è vuota.")
 
-    da_rimuovere = st.selectbox("❌ Rimuovi un elemento", [""] + lista)
-    if st.button("🗑️ Rimuovi"):
-        if da_rimuovere in lista:
-            lista.remove(da_rimuovere)
-            st.success(f"{da_rimuovere} rimosso!")
+da_rimuovere = st.selectbox("❌ Rimuovi un elemento", [""] + lista)
+if st.button("🗑️ Rimuovi"):
+    if da_rimuovere in lista:
+        lista.remove(da_rimuovere)
+        st.success(f"{da_rimuovere} rimosso!")
