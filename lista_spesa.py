@@ -26,6 +26,12 @@ if st.session_state.get("logged_in"):
     st.markdown("---")
     st.subheader(f"Ciao {st.session_state['username']}! Ecco la tua lista della spesa:")
 
+if st.button("🔓 Logout"):
+    st.session_state.logged_in = False
+    st.session_state.username = ""
+    st.experimental_rerun()
+
+
     # Lista iniziale
     if "lista" not in st.session_state:
         st.session_state.lista = []
