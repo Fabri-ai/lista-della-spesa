@@ -26,12 +26,6 @@ if st.session_state.get("logged_in"):
     st.markdown("---")
     st.subheader(f"Ciao {st.session_state['username']}! Ecco la tua lista della spesa:")
 
-if st.button("🔓 Logout"):
-    st.session_state.logged_in = False
-    st.session_state.username = ""
-    st.experimental_rerun()
-
-
     # Lista iniziale
     if "lista" not in st.session_state:
         st.session_state.lista = []
@@ -55,6 +49,11 @@ if st.button("🔓 Logout"):
 
     # Rimozione
     st.subheader("❌ Rimuovi un elemento:")
+
+    if st.button("🔓 Logout"):
+    st.session_state.logged_in = False
+    st.session_state.username = ""
+    st.experimental_rerun()
     da_rimuovere = st.selectbox("Scegli cosa vuoi rimuovere", [""] + st.session_state.lista)
     if st.button("Rimuovi"):
         if da_rimuovere in st.session_state.lista:
