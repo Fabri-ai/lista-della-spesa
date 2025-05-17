@@ -46,7 +46,7 @@ if not st.session_state.logged_in:
                 st.session_state.logged_in = True
                 st.session_state.username = username
                 st.success(f"Benvenuto, {username}!")
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("Credenziali non valide.")
 else:
