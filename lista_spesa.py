@@ -9,7 +9,7 @@ utenti = {
 
 st.set_page_config(page_title="Lista della Spesa", page_icon="🛒")
 
-st.title("🛒 Lista della Spesa con Login")
+st.title("🛒 Lista della Spesa Fab & Vik")
 
 # Inizializza stato sessione
 if "logged_in" not in st.session_state:
