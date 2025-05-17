@@ -2,8 +2,8 @@ import streamlit as st
 
 # Utenti autorizzati
 utenti = {
-    "mario": "1234",
-    "lucia": "ciao",
+    "fabrizio": "fabridig",
+    "vittoria": "vitbarb",
     "admin": "adminpass"
 }
 
