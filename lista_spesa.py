@@ -1,6 +1,9 @@
 import streamlit as st
+import pandas as pd
+from datetime import datetime
+import os
 
-# Utenti autorizzati
+# 🔐 Utenti autorizzati
 utenti = {
     "fabrizio": "fabridig",
     "vittoria": "vitbarb",
@@ -11,15 +14,27 @@ st.set_page_config(page_title="Lista della Spesa", page_icon="🛒")
 
 st.title("🛒 Lista della Spesa Fab & Vik")
 
-# Inizializza stato sessione
+# 📁 File CSV per la persistenza
+FILE_PATH = "lista.csv"
+
+# 📦 Inizializzazione stato
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
     st.session_state.username = ""
-if "lista" not in st.session_state:
-    st.session_state.lista = []
 
-# ✅ BLOCCO LOGIN
+# ✅ Funzione per caricare la lista dal file
+def carica_lista():
+    if os.path.exists(FILE_PATH):
+        return pd.read_csv(FILE_PATH)
+    else:
+        return pd.DataFrame(columns=["Prodotto", "Costo", "Data"])
+
+# ✅ Funzione per salvare la lista nel file
+def salva_lista(df):
+    df.to_csv(FILE_PATH, index=False)
+
+# ✅ LOGIN
 if not st.session_state.logged_in:
     username = st.text_input("👤 Nome utente")
     password = st.text_input("🔑 Password", type="password")
@@ -28,42 +43,54 @@ if not st.session_state.logged_in:
         if utenti.get(username) == password:
             st.session_state.logged_in = True
             st.session_state.username = username
-            st.rerun()  # Ricarica la pagina mostrando la lista
+            st.rerun()
         else:
             st.error("Credenziali errate.")
 
-# ✅ BLOCCO APP dopo il login
+# ✅ LISTA DOPO LOGIN
 else:
-    st.sidebar.success(f"Sei loggato come: {st.session_state.username}")
+    st.sidebar.success(f"👋 Ciao, {st.session_state.username}")
 
-    # Pulsante logout
     if st.sidebar.button("🔓 Logout"):
         st.session_state.logged_in = False
         st.session_state.username = ""
         st.rerun()
 
-    # LISTA DELLA SPESA CONDIVISA
-    st.header("📋 Lista della spesa condivisa")
+    st.header("📝 Aggiungi un prodotto alla lista")
 
-    lista = st.session_state.lista
+    prodotto = st.text_input("📦 Nome prodotto")
+    costo = st.text_input("💰 Costo (facoltativo)")
+    data = st.date_input("📅 Data di acquisto (facoltativa)", value=datetime.today())
 
-    nuovo = st.text_input("Aggiungi un elemento")
+    df_lista = carica_lista()
 
     if st.button("➕ Aggiungi"):
-        if nuovo:
-            lista.append(nuovo)
-            st.success(f"{nuovo} aggiunto!")
+        if prodotto:
+            nuova_riga = {
+                "Prodotto": prodotto,
+                "Costo": costo if costo else "",
+                "Data": data.strftime("%Y-%m-%d") if data else ""
+            }
+            df_lista = pd.concat([df_lista, pd.DataFrame([nuova_riga])], ignore_index=True)
+            salva_lista(df_lista)
+            st.success(f"✅ {prodotto} aggiunto!")
+            st.rerun()
+        else:
+            st.warning("Inserisci almeno il nome del prodotto.")
 
-    if lista:
-        st.subheader("📝 Lista attuale:")
-        for i, el in enumerate(lista, 1):
-            st.write(f"{i}. {el}")
-    else:
+    st.divider()
+
+    st.subheader("📋 Lista della spesa")
+
+    if df_lista.empty:
         st.info("La lista è vuota.")
+    else:
+        st.dataframe(df_lista, use_container_width=True)
 
-    da_rimuovere = st.selectbox("❌ Rimuovi un elemento", [""] + lista)
+        prodotto_rimuovi = st.selectbox("❌ Rimuovi un prodotto", [""] + list(df_lista["Prodotto"]))
 
-    if st.button("🗑️ Rimuovi"):
-        if da_rimuovere in lista:
-            lista.remove(da_rimuovere)
-            st.success(f"{da_rimuovere} rimosso!")
+        if st.button("🗑️ Rimuovi"):
+            df_lista = df_lista[df_lista["Prodotto"] != prodotto_rimuovi]
+            salva_lista(df_lista)
+            st.success(f"{prodotto_rimuovi} rimosso!")
+            st.rerun()
