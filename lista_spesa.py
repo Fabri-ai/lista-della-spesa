@@ -17,11 +17,10 @@ PERCORSO_FILE = "lista_spesa.csv"
 def carica_lista():
     try:
         df = pd.read_csv(PERCORSO_FILE)
-        df["Data"] = pd.to_datetime(df["Data"], errors="coerce")
-        df["Costo"] = pd.to_numeric(df["Costo"], errors="coerce").fillna(0.0)
+        df["Acquistato"] = df["Acquistato"].fillna(False).astype(bool)
         return df
     except FileNotFoundError:
-        return pd.DataFrame(columns=["Prodotto", "Costo", "Data"])
+        return pd.DataFrame(columns=["Prodotto", "Quantità", "Unità", "Costo", "Data", "Negozio", "Acquistato"])
 
 # 💾 Salva lista
 def salva_lista(df):
@@ -60,8 +59,11 @@ else:
     st.subheader("➕ Aggiungi nuovo prodotto")
 
     prodotto = st.text_input("📦 Nome prodotto")
+    quantita = st.text_input("🔢 Quantità")
+    unita = st.selectbox("⚖️ Unità di misura", ["", "pz", "kg", "g", "L", "ml", "bottiglia", "scatola", "altro"])
     costo = st.text_input("💰 Costo (facoltativo)")
     data = st.date_input("📅 Data di acquisto (facoltativa)", value=datetime.today())
+    negozio = st.text_input("🏪 Negozio (facoltativo)")
 
     df_lista = carica_lista()
 
@@ -69,8 +71,12 @@ else:
         if prodotto:
             nuova_riga = {
                 "Prodotto": prodotto,
+                "Quantità": quantita,
+                "Unità": unita,
                 "Costo": float(costo) if costo else 0.0,
-                "Data": data.strftime("%Y-%m-%d")
+                "Data": data.strftime("%m-%Y"),  # 📅 Formato mm-aaaa
+                "Negozio": negozio,
+                "Acquistato": False  # ⬜ Checkbox inizialmente non spuntato
             }
             df_lista = pd.concat([df_lista, pd.DataFrame([nuova_riga])], ignore_index=True)
             salva_lista(df_lista)
@@ -80,30 +86,25 @@ else:
             st.warning("⚠️ Il nome del prodotto è obbligatorio.")
 
     st.divider()
-    st.subheader("📋 Modifica la lista (clicca sulle celle)")
+    st.subheader("📋 Modifica la lista")
 
     if df_lista.empty:
         st.info("La lista è vuota.")
     else:
-        # 📊 Ordinamento
-        st.markdown("### 🔽 Ordina la tabella")
-        colonna_ordinamento = st.selectbox("Ordina per", options=["Prodotto", "Costo", "Data"], index=2)
-        ordine_decrescente = st.checkbox("📉 Ordine decrescente", value=False)
-
-        df_lista["Data"] = pd.to_datetime(df_lista["Data"], errors="coerce")
-        df_lista["Costo"] = pd.to_numeric(df_lista["Costo"], errors="coerce").fillna(0.0)
-        df_lista = df_lista.sort_values(by=colonna_ordinamento, ascending=not ordine_decrescente)
-
-        # 📝 Editor tipo Excel
+        # 📝 Editor tipo Excel con checkbox
         df_modificato = st.data_editor(
             df_lista,
             column_config={
                 "Prodotto": st.column_config.TextColumn("🛒 Prodotto"),
+                "Quantità": st.column_config.TextColumn("🔢 Quantità"),
+                "Unità": st.column_config.TextColumn("⚖️ Unità"),
                 "Costo": st.column_config.NumberColumn("💰 Costo"),
-                "Data": st.column_config.DateColumn("📅 Data di acquisto"),
+                "Data": st.column_config.TextColumn("📅 Data (mm-aaaa)"),
+                "Negozio": st.column_config.TextColumn("🏪 Negozio"),
+                "Acquistato": st.column_config.CheckboxColumn("✅ Acquistato")
             },
-            num_rows="dynamic",
-            use_container_width=True
+            use_container_width=True,
+            num_rows="dynamic"
         )
 
         if st.button("💾 Salva modifiche"):
@@ -111,10 +112,15 @@ else:
             st.success("Lista aggiornata con successo!")
             st.rerun()
 
-        # 📈 Grafico
-        st.subheader("📈 Totale spese per giorno")
-        spese_per_data = df_lista.groupby("Data")["Costo"].sum().reset_index()
-        st.line_chart(spese_per_data.rename(columns={"Data": "index"}).set_index("index"))
+        # 📈 Grafico spese (solo se ci sono date valide)
+        st.subheader("📈 Totale spese per mese")
+        try:
+            spese_per_data = df_lista.copy()
+            spese_per_data["Data"] = pd.to_datetime(spese_per_data["Data"], format="%m-%Y")
+            grafico = spese_per_data.groupby("Data")["Costo"].sum().reset_index()
+            st.line_chart(grafico.rename(columns={"Data": "index"}).set_index("index"))
+        except:
+            st.info("Formato date non valido per il grafico.")
 
         # 🗑️ Rimozione
         st.subheader("❌ Rimuovi un prodotto")
