@@ -1,113 +1,104 @@
 import streamlit as st
-import pandas as pd
+import json
 import os
+from datetime import datetime
 
-st.set_page_config(page_title="Lista della Spesa Fab & Vik", layout="centered")
-st.title("📝 Lista della Spesa Fab & Vik")
+st.set_page_config(page_title="Lista della Spesa Fab & Vik", layout="wide")
 
-# --- Credenziali utente ---
+# File per salvataggio persistente
+FILE_LISTA = "dati_lista.json"
+
+# Utenti autorizzati
 utenti_autorizzati = {
     "fabrizio": "fabridig",
     "vittoria": "vitbarb"
 }
 
-# --- Inizializza sessione ---
+# Inizializzazione dello stato sessione
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = ""
 
-# --- Login ---
+if "lista" not in st.session_state:
+    if os.path.exists(FILE_LISTA):
+        with open(FILE_LISTA, "r") as f:
+            st.session_state.lista = json.load(f)
+    else:
+        st.session_state.lista = []
+
+# 🔐 Login
 if not st.session_state.logged_in:
-    st.subheader("🔐 Login")
+    st.title("🔐 Login")
     username = st.text_input("Username")
     password = st.text_input("Password", type="password")
-
     if st.button("Entra"):
         if username in utenti_autorizzati and utenti_autorizzati[username] == password:
             st.session_state.logged_in = True
             st.session_state.username = username
-            st.experimental_rerun()
+            st.rerun()
         else:
             st.error("Credenziali non valide")
 
-# --- Dopo login ---
-if st.session_state.logged_in:
-    st.success(f"Benvenuto, {st.session_state.username.capitalize()} 👋")
+else:
+    # 🔓 Logout
     if st.button("🔓 Logout"):
         st.session_state.logged_in = False
         st.session_state.username = ""
-        st.experimental_rerun()
+        st.rerun()
 
-    # --- Caricamento dati ---
-    file_path = "lista_spesa.csv"
-    if os.path.exists(file_path):
-        df = pd.read_csv(file_path)
-    else:
-        df = pd.DataFrame(columns=[
-            "Prodotto", "Quantità", "Unità", "Costo (€)",
-            "Data di acquisto", "Negozio", "Acquistato"
-        ])
+    st.title("🛒 Lista della Spesa Fab & Vik")
 
-    # --- Aggiunta nuovo elemento ---
-    with st.form("Aggiungi elemento"):
-        st.subheader("➕ Aggiungi prodotto")
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            prodotto = st.text_input("Prodotto")
-        with col2:
-            quantita = st.number_input("Quantità", min_value=0.0, step=1.0, format="%.1f")
-        with col3:
-            unita = st.text_input("Unità", placeholder="es. kg, pezzi")
+    # 🎯 Aggiunta nuovo elemento
+    with st.form("Aggiungi prodotto"):
+        prodotto = st.text_input("Prodotto")
+        quantita = st.number_input("Quantità", min_value=0.0, step=1.0)
+        unita = st.selectbox("Unità di misura", ["", "pezzi", "kg", "g", "l", "ml"])
+        costo = st.text_input("Costo (€)", placeholder="es. 4.50")
+        data_acquisto = st.text_input("Data (mm-aaaa)", placeholder="es. 05-2025")
+        negozio = st.text_input("Negozio", placeholder="es. Supermercato")
+        submitted = st.form_submit_button("➕ Aggiungi")
 
-        col4, col5, col6 = st.columns(3)
-        with col4:
-            costo = st.number_input("Costo (€)", min_value=0.0, step=0.5, format="%.2f")
-        with col5:
-            data_acquisto = st.text_input("Data di acquisto (mm-aaaa)")
-        with col6:
-            negozio = st.text_input("Negozio")
-
-        submitted = st.form_submit_button("Aggiungi")
-        if submitted and prodotto.strip():
-            nuovo = {
-                "Prodotto": prodotto.strip(),
+        if submitted and prodotto:
+            st.session_state.lista.append({
+                "Prodotto": prodotto,
                 "Quantità": quantita,
-                "Unità": unita.strip(),
+                "Unità": unita,
                 "Costo (€)": costo,
-                "Data di acquisto": data_acquisto.strip(),
-                "Negozio": negozio.strip(),
+                "Data": data_acquisto,
+                "Negozio": negozio,
                 "Acquistato": False
-            }
-            df = df.append(nuovo, ignore_index=True)
-            df.to_csv(file_path, index=False)
-            st.success(f"✅ {prodotto} aggiunto!")
-            st.experimental_rerun()
+            })
+            # Salva i dati
+            with open(FILE_LISTA, "w") as f:
+                json.dump(st.session_state.lista, f, indent=2)
+            st.success("✅ Prodotto aggiunto!")
+            st.rerun()
 
-    # --- Editor tabella interattiva ---
-    st.subheader("📋 La tua lista")
-    df["Acquistato"] = df["Acquistato"].fillna(False).astype(bool)
-    df["Quantità"] = pd.to_numeric(df["Quantità"], errors="coerce").fillna(1)
-    df["Costo (€)"] = pd.to_numeric(df["Costo (€)"], errors="coerce").fillna(0.0)
-    df["Data di acquisto"] = df["Data di acquisto"].astype(str)
+    # 🧾 Tabella modificabile
+    if st.session_state.lista:
+        st.subheader("📋 Lista Attuale")
+        df = st.data_editor(
+            st.session_state.lista,
+            use_container_width=True,
+            num_rows="dynamic",
+            column_config={
+                "Prodotto": st.column_config.TextColumn(),
+                "Quantità": st.column_config.NumberColumn(format="%.2f"),
+                "Unità": st.column_config.TextColumn(),
+                "Costo (€)": st.column_config.TextColumn(),
+                "Data": st.column_config.TextColumn(help="Formato mm-aaaa"),
+                "Negozio": st.column_config.TextColumn(),
+                "Acquistato": st.column_config.CheckboxColumn()
+            },
+            hide_index=True
+        )
 
-    df_mod = st.data_editor(
-        df,
-        column_config={
-            "Prodotto": st.column_config.TextColumn("Prodotto"),
-            "Quantità": st.column_config.NumberColumn("Quantità", step=1),
-            "Unità": st.column_config.TextColumn("Unità"),
-            "Costo (€)": st.column_config.NumberColumn("Costo (€)", format="%.2f"),
-            "Data di acquisto": st.column_config.TextColumn("Data (mm-aaaa)"),
-            "Negozio": st.column_config.TextColumn("Negozio"),
-            "Acquistato": st.column_config.CheckboxColumn("✓ Acquistato")
-        },
-        use_container_width=True,
-        hide_index=True,
-        num_rows="dynamic"
-    )
+        # Salva le modifiche
+        if df != st.session_state.lista:
+            st.session_state.lista = df
+            with open(FILE_LISTA, "w") as f:
+                json.dump(df, f, indent=2)
+            st.success("💾 Modifiche salvate!")
 
-    # --- Salvataggio modifiche ---
-    if df_mod.to_dict() != df.to_dict():
-        df_mod.to_csv(file_path, index=False)
-        st.success("💾 Lista aggiornata!")
-
+    else:
+        st.info("La lista è vuota. Aggiungi un prodotto.")
