@@ -1,0 +1,4 @@
+gspread
+oauth2client
+streamlit
+Add requirements.txt with gspread and oauth2client
