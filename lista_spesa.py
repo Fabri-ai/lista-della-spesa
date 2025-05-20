@@ -79,7 +79,12 @@ else:
 
         quantita = st.number_input("Quantità", min_value=0.0, step=1.0)
         unita = st.selectbox("Unità di misura", ["pz", "kg", "gr", "lt", "ml"])
-        costo = st.number_input("Costo (€)", min_value=0.0, format="%.2f")
+
+        costo_input = st.text_input("Costo (€)", value="0,00")
+        try:
+            costo = float(costo_input.replace(",", "."))
+        except ValueError:
+            costo = 0.0
 
         data_scelta = st.selectbox("Data (mm-aaaa)", options=[""] + mesi_esistenti)
         nuova_data = st.text_input("Nuova data (mm-aaaa)")
@@ -162,6 +167,7 @@ else:
                 msg = st.empty()
                 salva_lista(df_lista, msg)
                 df_lista["✔️ Elimina"] = False
+                st.session_state["elimina_richiesto"] = False
                 st.rerun()
     else:
         st.info("La lista è vuota o nessun risultato corrisponde ai filtri.")
