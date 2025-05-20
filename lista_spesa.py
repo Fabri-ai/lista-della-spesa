@@ -66,7 +66,7 @@ else:
 
     df_lista = carica_lista()
 
-    # --- Estrai valori unici per i menu a tendina ---
+    # --- Estrai valori unici ---
     prodotti_esistenti = sorted(df_lista["Prodotto"].dropna().unique()) if "Prodotto" in df_lista else []
     negozi_esistenti = sorted(df_lista["Negozio"].dropna().unique()) if "Negozio" in df_lista else []
     mesi_esistenti = sorted(df_lista["Data"].dropna().unique()) if "Data" in df_lista else []
@@ -84,6 +84,7 @@ else:
         try:
             costo = float(costo_input.replace(",", "."))
         except ValueError:
+            st.warning("❌ Inserisci un costo valido (es. 3,50)")
             costo = 0.0
 
         data_scelta = st.selectbox("Data (mm-aaaa)", options=[""] + mesi_esistenti)
@@ -112,7 +113,7 @@ else:
         st.success("✅ Prodotto aggiunto!")
         st.rerun()
 
-    # --- Filtri combinabili ---
+    # --- Filtri ---
     st.subheader("🔍 Filtri")
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -163,11 +164,11 @@ else:
         if df_modificato["✔️ Elimina"].any():
             if st.button("🗑️ Rimuovi selezionati"):
                 df_lista["✔️ Elimina"] = df_lista["✔️ Elimina"].fillna(False).astype(bool)
-                df_lista = df_lista[~df_lista["✔️ Elimina"]]
-                msg = st.empty()
-                salva_lista(df_lista, msg)
-                df_lista["✔️ Elimina"] = False
-                st.session_state["elimina_richiesto"] = False
-                st.rerun()
+                nuove_righe = df_lista[~df_lista["✔️ Elimina"]]
+                if not nuove_righe.equals(df_lista):
+                    df_lista = nuove_righe.copy()
+                    msg = st.empty()
+                    salva_lista(df_lista, msg)
+                    st.rerun()
     else:
         st.info("La lista è vuota o nessun risultato corrisponde ai filtri.")
