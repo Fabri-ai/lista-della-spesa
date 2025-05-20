@@ -75,7 +75,7 @@ else:
     with st.form("Aggiungi prodotto"):
         prodotto_scelto = st.selectbox("Prodotto", options=[""] + (prodotti_esistenti if prodotti_esistenti else []))
         nuovo_prodotto = st.text_input("Nuovo prodotto")
-        prodotto = nuovo_prodotto if nuovo_prodotto.strip() else prodotto_scelto
+        prodotto = nuovo_prodotto.strip() if nuovo_prodotto.strip() else prodotto_scelto
 
         quantita = st.number_input("Quantità", min_value=0.0, step=1.0)
         unita = st.selectbox("Unità di misura", ["pz", "kg", "gr", "lt", "ml"])
@@ -83,13 +83,30 @@ else:
 
         data_scelta = st.selectbox("Data (mm-aaaa)", options=[""] + (mesi_esistenti if mesi_esistenti else []))
         nuova_data = st.text_input("Nuova data (mm-aaaa)")
-        data = nuova_data if nuova_data.strip() else data_scelta
+        data = nuova_data.strip() if nuova_data.strip() else data_scelta
 
         negozio_scelto = st.selectbox("Negozio", options=[""] + (negozi_esistenti if negozi_esistenti else []))
         nuovo_negozio = st.text_input("Nuovo negozio")
-        negozio = nuovo_negozio if nuovo_negozio.strip() else negozio_scelto
+        negozio = nuovo_negozio.strip() if nuovo_negozio.strip() else negozio_scelto
 
         submitted = st.form_submit_button("➕ Aggiungi")
+
+    if submitted and prodotto:
+        nuovo = {
+            "✔️ Elimina": False,
+            "Prodotto": prodotto,
+            "Quantità": quantita,
+            "Unità": unita,
+            "Costo (€)": round(costo, 2),
+            "Data": data,
+            "Negozio": negozio,
+            "Acquistato": False
+        }
+        df_lista = pd.concat([df_lista, pd.DataFrame([nuovo])], ignore_index=True)
+        salva_lista(df_lista)
+        st.success("✅ Prodotto aggiunto!")
+        st.experimental_rerun()
+
 
     costo_input = st.text_input("Costo (€)", value="0,00")
     try:
