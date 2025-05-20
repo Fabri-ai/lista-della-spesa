@@ -1,133 +1,155 @@
 import streamlit as st
 import pandas as pd
 import gspread
-from google.oauth2 import service_account
-from datetime import datetime
+from google.oauth2.service_account import Credentials
 
-# --- Impostazioni ---
-st.set_page_config(page_title="Lista della Spesa", page_icon="🛒", layout="centered")
+# --- Configurazione Streamlit ---
+st.set_page_config(page_title="Lista della Spesa Fab & Vik", layout="wide")
 
-# --- Connessione a Google Sheets ---
+# --- Autenticazione utenti ---
+utenti_autorizzati = {
+    "fabrizio": "fabridig",
+    "vittoria": "vitbarb"
+}
+
+# --- Google Sheets ---
+SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/18gm99X8PTlhz5J7RkNhoYbyPPQlZc1QkT-TM9YRvu-A"
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
-SPREADSHEET_URL = st.secrets["private_gsheets_url"]
-
-credentials = service_account.Credentials.from_service_account_info(
+credentials = Credentials.from_service_account_info(
     st.secrets["gcp_service_account"], scopes=SCOPES
 )
 client = gspread.authorize(credentials)
 sheet = client.open_by_url(SPREADSHEET_URL).sheet1
 
-# --- Utility ---
-def carica_dati():
-    data = sheet.get_all_records()
-    df = pd.DataFrame(data)
-    if not df.empty:
-        df["Data"] = pd.to_datetime(df["Data"], format="%Y-%m-%d")
-        df["Costo (€)"] = pd.to_numeric(df["Costo (€)"], errors="coerce")
-    return df
+# --- Funzioni di utilità ---
+@st.cache_data(ttl=60)
+def carica_lista():
+    try:
+        dati = sheet.get_all_records()
+        return pd.DataFrame(dati)
+    except Exception as e:
+        st.error(f"Errore nel caricamento dati: {e}")
+        return pd.DataFrame()
 
-def salva_riga(data, prodotto, negozio, costo):
-    sheet.append_row([data.strftime("%Y-%m-%d"), prodotto, negozio, f"{costo:.2f}", "", ""])
-
-def aggiorna_google_sheet(df):
+def salva_lista(df, msg_placeholder=None):
+    if msg_placeholder:
+        msg_placeholder.info("⏳ Sto salvando...")
     sheet.clear()
-    sheet.append_row(df.columns.tolist())
-    sheet.append_rows(df.values.tolist())
+    sheet.update([df.columns.values.tolist()] + df.values.tolist())
+    if msg_placeholder:
+        msg_placeholder.success("✅ Operazione completata!")
+
+# --- Session State ---
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = ""
 
 # --- Login ---
-def login():
+if not st.session_state.logged_in:
     st.title("🔐 Login")
-    password = st.text_input("Inserisci la password:", type="password")
-    if st.button("Accedi"):
-        if password == st.secrets["app_password"]:
-            st.session_state["autenticato"] = True
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Entra"):
+        if username in utenti_autorizzati and utenti_autorizzati[username] == password:
+            st.session_state.logged_in = True
+            st.session_state.username = username
             st.rerun()
         else:
-            st.error("❌ Password errata")
-
-if "autenticato" not in st.session_state:
-    st.session_state["autenticato"] = False
-
-if not st.session_state["autenticato"]:
-    login()
-    st.stop()
-
-# --- App ---
-st.title("🛒 Lista della Spesa")
-df = carica_dati()
-
-# --- Inserimento nuova riga ---
-st.subheader("➕ Aggiungi prodotto")
-col1, col2, col3, col4 = st.columns(4)
-
-with col1:
-    data = st.date_input("Data", value=datetime.today())
-with col2:
-    prodotti_esistenti = sorted(df["Prodotto"].dropna().unique()) if not df.empty else []
-    prodotto = st.selectbox("Prodotto", options=prodotti_esistenti + ["Altro"], index=0)
-    if prodotto == "Altro":
-        prodotto = st.text_input("Inserisci nuovo prodotto")
-with col3:
-    negozi_esistenti = sorted(df["Negozio"].dropna().unique()) if not df.empty else []
-    negozio = st.selectbox("Negozio", options=negozi_esistenti + ["Altro"], index=0)
-    if negozio == "Altro":
-        negozio = st.text_input("Inserisci nuovo negozio")
-with col4:
-    costo = st.number_input("Costo (€)", min_value=0.0, format="%.2f")
-
-if st.button("Salva prodotto"):
-    with st.spinner("💾 Sto salvando, attendi..."):
-        salva_riga(data, prodotto, negozio, costo)
-        st.success("✅ Prodotto salvato correttamente!")
+            st.error("Credenziali non valide")
+else:
+    if st.button("🔓 Logout"):
+        st.session_state.logged_in = False
+        st.session_state.username = ""
         st.rerun()
 
-# --- Filtri ---
-st.subheader("🔍 Filtra la lista")
-colf1, colf2, colf3 = st.columns(3)
+    st.title("🛒 Lista della Spesa Fab & Vik")
 
-with colf1:
-    mesi = sorted(df["Data"].dt.strftime("%Y-%m").unique()) if not df.empty else []
-    mese_scelto = st.selectbox("Filtro per mese", options=["Tutti"] + mesi)
-with colf2:
-    negozi = sorted(df["Negozio"].dropna().unique()) if not df.empty else []
-    negozio_scelto = st.selectbox("Filtro per negozio", options=["Tutti"] + negozi)
-with colf3:
-    prodotti = sorted(df["Prodotto"].dropna().unique()) if not df.empty else []
-    prodotto_scelto = st.selectbox("Filtro per prodotto", options=["Tutti"] + prodotti)
+    df_lista = carica_lista()
 
-# --- Applica filtri ---
-df_filtrato = df.copy()
-if mese_scelto != "Tutti":
-    df_filtrato = df_filtrato[df_filtrato["Data"].dt.strftime("%Y-%m") == mese_scelto]
-if negozio_scelto != "Tutti":
-    df_filtrato = df_filtrato[df_filtrato["Negozio"] == negozio_scelto]
-if prodotto_scelto != "Tutti":
-    df_filtrato = df_filtrato[df_filtrato["Prodotto"] == prodotto_scelto]
+    # --- Estrai valori unici per i menu a tendina ---
+    prodotti_esistenti = sorted(df_lista["Prodotto"].dropna().unique()) if "Prodotto" in df_lista else []
+    negozi_esistenti = sorted(df_lista["Negozio"].dropna().unique()) if "Negozio" in df_lista else []
+    mesi_esistenti = sorted(df_lista["Data"].dropna().unique()) if "Data" in df_lista else []
 
-# --- Visualizza e modifica dati ---
-if not df_filtrato.empty:
-    st.subheader("📋 Lista attuale")
+    # --- Aggiunta prodotto ---
+    with st.form("Aggiungi prodotto"):
+        prodotto = st.selectbox("Prodotto", options=[""] + prodotti_esistenti) or st.text_input("Nuovo prodotto")
+        quantita = st.number_input("Quantità", min_value=0.0, step=1.0)
+        unita = st.selectbox("Unità di misura", ["pz", "kg", "gr", "lt", "ml"])
+        costo = st.number_input("Costo (€)", min_value=0.0, format="%.2f")
+        data = st.selectbox("Data (mm-aaaa)", options=[""] + mesi_esistenti) or st.text_input("Nuova data (mm-aaaa)")
+        negozio = st.selectbox("Negozio", options=[""] + negozi_esistenti) or st.text_input("Nuovo negozio")
+        submitted = st.form_submit_button("➕ Aggiungi")
 
-    df_modificato = st.data_editor(
-        df_filtrato,
-        use_container_width=True,
-        num_rows="dynamic",
-        column_config={
-            "Costo (€)": st.column_config.NumberColumn("Costo (€)", format="%.2f"),
-            "Eliminato": st.column_config.CheckboxColumn("❌ Elimina"),
-            "Acquistato": st.column_config.CheckboxColumn("✅ Acquistato"),
-        },
-        disabled=["Data", "Prodotto", "Negozio"],
-        key="editor"
-    )
-
-    if st.button("Salva modifiche"):
-        with st.spinner("💾 Salvataggio in corso..."):
-            df_finale = df.copy()
-            df_finale.update(df_modificato)
-            df_finale = df_finale[df_finale["Eliminato"] != True]
-            aggiorna_google_sheet(df_finale)
-            st.success("✅ Modifiche salvate con successo!")
+        if submitted and prodotto:
+            msg = st.empty()
+            nuovo = {
+                "✔️ Elimina": False,
+                "Prodotto": prodotto,
+                "Quantità": quantita,
+                "Unità": unita,
+                "Costo (€)": round(costo, 2),
+                "Data": data,
+                "Negozio": negozio,
+                "Acquistato": False
+            }
+            df_lista = pd.concat([df_lista, pd.DataFrame([nuovo])], ignore_index=True)
+            salva_lista(df_lista, msg)
             st.rerun()
-else:
-    st.info("Nessun dato disponibile con i filtri selezionati.")
+
+    # --- Filtri combinabili ---
+    st.subheader("🔍 Filtri")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        filtro_mese = st.selectbox("📅 Filtra per mese", options=[""] + mesi_esistenti)
+    with col2:
+        filtro_negozio = st.selectbox("🏪 Filtra per negozio", options=[""] + negozi_esistenti)
+    with col3:
+        filtro_prodotto = st.selectbox("🛍️ Filtra per prodotto", options=[""] + prodotti_esistenti)
+
+    df_filtrato = df_lista.copy()
+    if filtro_mese:
+        df_filtrato = df_filtrato[df_filtrato["Data"] == filtro_mese]
+    if filtro_negozio:
+        df_filtrato = df_filtrato[df_filtrato["Negozio"] == filtro_negozio]
+    if filtro_prodotto:
+        df_filtrato = df_filtrato[df_filtrato["Prodotto"] == filtro_prodotto]
+
+    # --- Tabella modificabile ---
+    if not df_filtrato.empty:
+        st.subheader("📋 Lista Attuale")
+
+        df_modificato = st.data_editor(
+            df_filtrato,
+            use_container_width=True,
+            num_rows="dynamic",
+            column_config={
+                "✔️ Elimina": st.column_config.CheckboxColumn(),
+                "Prodotto": st.column_config.TextColumn(),
+                "Quantità": st.column_config.NumberColumn(format="%.2f"),
+                "Unità": st.column_config.TextColumn(),
+                "Costo (€)": st.column_config.NumberColumn(format="%.2f"),
+                "Data": st.column_config.TextColumn(help="Formato mm-aaaa"),
+                "Negozio": st.column_config.TextColumn(),
+                "Acquistato": st.column_config.CheckboxColumn()
+            },
+            hide_index=True
+        )
+
+        # --- Salvataggio modifiche ---
+        if not df_modificato.equals(df_filtrato):
+            msg = st.empty()
+            idx_aggiornati = df_modificato.index
+            df_lista.loc[idx_aggiornati] = df_modificato
+            salva_lista(df_lista, msg)
+            st.rerun()
+
+        # --- Rimozione prodotti selezionati ---
+        if df_modificato["✔️ Elimina"].any():
+            if st.button("🗑️ Rimuovi selezionati"):
+                msg = st.empty()
+                df_lista = df_lista[~df_lista["✔️ Elimina"]]
+                salva_lista(df_lista, msg)
+                st.rerun()
+    else:
+        st.info("La lista è vuota o nessun risultato corrisponde ai filtri.")
