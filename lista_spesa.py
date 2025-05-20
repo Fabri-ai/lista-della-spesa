@@ -33,7 +33,7 @@ def carica_lista():
 
 def salva_lista(df, msg_placeholder=None):
     if msg_placeholder:
-        msg_placeholder.info("⏳ Sto salvando...")
+        msg_placeholder.info("💾 Sto salvando, attendi...")
     sheet.clear()
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
     if msg_placeholder:
@@ -82,7 +82,6 @@ else:
         submitted = st.form_submit_button("➕ Aggiungi")
 
         if submitted and prodotto:
-            msg = st.empty()
             nuovo = {
                 "✔️ Elimina": False,
                 "Prodotto": prodotto,
@@ -94,6 +93,7 @@ else:
                 "Acquistato": False
             }
             df_lista = pd.concat([df_lista, pd.DataFrame([nuovo])], ignore_index=True)
+            msg = st.empty()
             salva_lista(df_lista, msg)
             st.rerun()
 
@@ -138,17 +138,22 @@ else:
 
         # --- Salvataggio modifiche ---
         if not df_modificato.equals(df_filtrato):
-            msg = st.empty()
-            idx_aggiornati = df_modificato.index
-            df_lista.loc[idx_aggiornati] = df_modificato
-            salva_lista(df_lista, msg)
-            st.rerun()
+            differenze = df_modificato.compare(df_filtrato)
+            colonne_modificate = set(differenze.columns.get_level_values(0))
+            solo_checkbox = colonne_modificate.issubset({"✔️ Elimina", "Acquistato"})
+
+            if not solo_checkbox:
+                msg = st.empty()
+                idx_aggiornati = df_modificato.index
+                df_lista.loc[idx_aggiornati] = df_modificato
+                salva_lista(df_lista, msg)
+                st.rerun()
 
         # --- Rimozione prodotti selezionati ---
         if df_modificato["✔️ Elimina"].any():
             if st.button("🗑️ Rimuovi selezionati"):
-                msg = st.empty()
                 df_lista = df_lista[~df_lista["✔️ Elimina"]]
+                msg = st.empty()
                 salva_lista(df_lista, msg)
                 st.rerun()
     else:
