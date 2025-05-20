@@ -31,13 +31,13 @@ def carica_lista():
         st.error(f"Errore nel caricamento dati: {e}")
         return pd.DataFrame()
 
-def salva_lista(df, msg_placeholder=None):
-    if msg_placeholder:
-        msg_placeholder.info("💾 Sto salvando, attendi...")
+def salva_lista(df, msg_container=None):
+    if msg_container:
+        msg_container.info("💾 Sto salvando, attendi...")
     sheet.clear()
     sheet.update([df.columns.values.tolist()] + df.values.tolist())
-    if msg_placeholder:
-        msg_placeholder.success("✅ Operazione completata!")
+    if msg_container:
+        msg_container.success("✅ Operazione completata!")
 
 # --- Session State ---
 if "logged_in" not in st.session_state:
@@ -138,20 +138,17 @@ else:
 
         # --- Salvataggio modifiche ---
         if not df_modificato.equals(df_filtrato):
-            differenze = df_modificato.compare(df_filtrato)
-            colonne_modificate = set(differenze.columns.get_level_values(0))
-            solo_checkbox = colonne_modificate.issubset({"✔️ Elimina", "Acquistato"})
-
-            if not solo_checkbox:
-                msg = st.empty()
-                idx_aggiornati = df_modificato.index
-                df_lista.loc[idx_aggiornati] = df_modificato
-                salva_lista(df_lista, msg)
-                st.rerun()
+            idx_aggiornati = df_modificato.index
+            df_lista.loc[idx_aggiornati] = df_modificato
+            msg = st.empty()
+            salva_lista(df_lista, msg)
+            st.rerun()
 
         # --- Rimozione prodotti selezionati ---
         if df_modificato["✔️ Elimina"].any():
             if st.button("🗑️ Rimuovi selezionati"):
+                # Fix: assicurati che "✔️ Elimina" sia booleano e senza NaN
+                df_lista["✔️ Elimina"] = df_lista["✔️ Elimina"].fillna(False).astype(bool)
                 df_lista = df_lista[~df_lista["✔️ Elimina"]]
                 msg = st.empty()
                 salva_lista(df_lista, msg)
