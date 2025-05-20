@@ -72,52 +72,24 @@ else:
     mesi_esistenti = sorted(df_lista["Data"].dropna().unique()) if "Data" in df_lista else []
 
     # --- Aggiunta prodotto ---
-    # --- Aggiunta prodotto ---
+    with st.form("Aggiungi prodotto"):
+        prodotto_scelto = st.selectbox("Prodotto", options=[""] + prodotti_esistenti)
+        nuovo_prodotto = st.text_input("Nuovo prodotto")
+        prodotto = nuovo_prodotto.strip() if nuovo_prodotto.strip() else prodotto_scelto
 
-with st.form("Aggiungi prodotto"):
-    prodotto_scelto = st.selectbox("Prodotto", options=[""] + (prodotti_esistenti if prodotti_esistenti else []))
-    nuovo_prodotto = st.text_input("Nuovo prodotto")
-    prodotto = nuovo_prodotto.strip() if nuovo_prodotto.strip() else prodotto_scelto
+        quantita = st.number_input("Quantità", min_value=0.0, step=1.0)
+        unita = st.selectbox("Unità di misura", ["pz", "kg", "gr", "lt", "ml"])
+        costo = st.number_input("Costo (€)", min_value=0.0, format="%.2f")
 
-    quantita = st.number_input("Quantità", min_value=0.0, step=1.0)
-    unita = st.selectbox("Unità di misura", ["pz", "kg", "gr", "lt", "ml"])
-    costo = st.number_input("Costo (€)", min_value=0.0, format="%.2f")
+        data_scelta = st.selectbox("Data (mm-aaaa)", options=[""] + mesi_esistenti)
+        nuova_data = st.text_input("Nuova data (mm-aaaa)")
+        data = nuova_data.strip() if nuova_data.strip() else data_scelta
 
-    data_scelta = st.selectbox("Data (mm-aaaa)", options=[""] + (mesi_esistenti if mesi_esistenti else []))
-    nuova_data = st.text_input("Nuova data (mm-aaaa)")
-    data = nuova_data.strip() if nuova_data.strip() else data_scelta
+        negozio_scelto = st.selectbox("Negozio", options=[""] + negozi_esistenti)
+        nuovo_negozio = st.text_input("Nuovo negozio")
+        negozio = nuovo_negozio.strip() if nuovo_negozio.strip() else negozio_scelto
 
-    negozio_scelto = st.selectbox("Negozio", options=[""] + (negozi_esistenti if negozi_esistenti else []))
-    nuovo_negozio = st.text_input("Nuovo negozio")
-    negozio = nuovo_negozio.strip() if nuovo_negozio.strip() else negozio_scelto
-
-    submitted = st.form_submit_button("➕ Aggiungi")
-
-if submitted and prodotto:
-    nuovo = {
-        "✔️ Elimina": False,
-        "Prodotto": prodotto,
-        "Quantità": quantita,
-        "Unità": unita,
-        "Costo (€)": round(costo, 2),
-        "Data": data,
-        "Negozio": negozio,
-        "Acquistato": False
-    }
-    df_lista = pd.concat([df_lista, pd.DataFrame([nuovo])], ignore_index=True)
-    salva_lista(df_lista)
-    st.success("✅ Prodotto aggiunto!")
-    st.rerun()
-
-    costo_input = st.text_input("Costo (€)", value="0,00")
-    try:
-        costo = float(costo_input.replace(",", "."))
-    except ValueError:
-        costo = 0.0
-
-    data = st.selectbox("Data (mm-aaaa)", options=[""] + mesi_esistenti) or st.text_input("Nuova data (mm-aaaa)")
-    negozio = st.selectbox("Negozio", options=[""] + negozi_esistenti) or st.text_input("Nuovo negozio")
-    submitted = st.form_submit_button("➕ Aggiungi")
+        submitted = st.form_submit_button("➕ Aggiungi")
 
     if submitted and prodotto:
         nuovo = {
@@ -182,19 +154,14 @@ if submitted and prodotto:
             salva_lista(df_lista, msg)
             st.rerun()
 
-       # --- Rimozione prodotti selezionati ---
+        # --- Rimozione prodotti selezionati ---
         if df_modificato["✔️ Elimina"].any():
             if st.button("🗑️ Rimuovi selezionati"):
-                # Assicuriamoci che "✔️ Elimina" sia booleano e senza NaN
                 df_lista["✔️ Elimina"] = df_lista["✔️ Elimina"].fillna(False).astype(bool)
                 df_lista = df_lista[~df_lista["✔️ Elimina"]]
                 msg = st.empty()
                 salva_lista(df_lista, msg)
-                
-                # Reset del flag elimina per evitare loop al reload
                 df_lista["✔️ Elimina"] = False
-                st.session_state["elimina_richiesto"] = False  # opzionale se usi session state per altri scopi
-                
                 st.rerun()
     else:
         st.info("La lista è vuota o nessun risultato corrisponde ai filtri.")
