@@ -1,6 +1,5 @@
-import streamlit as st 
+import streamlit as st
 import pandas as pd
-import json
 import gspread
 from google.oauth2.service_account import Credentials
 
@@ -27,6 +26,7 @@ spreadsheet = client.open_by_url(SPREADSHEET_URL)
 sheet = spreadsheet.sheet1
 
 # Caricamento dati iniziali
+@st.cache_data(ttl=60)
 def carica_lista():
     try:
         dati = sheet.get_all_records()
@@ -37,19 +37,13 @@ def carica_lista():
 
 # Salvataggio dati
 def salva_lista(df):
-    try:
-        sheet.clear()
-        sheet.update([df.columns.values.tolist()] + df.values.tolist())
-    except Exception as e:
-        st.error(f"Errore nel salvataggio: {e}")
+    sheet.clear()
+    sheet.update([df.columns.values.tolist()] + df.values.tolist())
 
 # Session state
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = ""
-
-if "df_lista" not in st.session_state:
-    st.session_state.df_lista = carica_lista()
 
 # Login
 if not st.session_state.logged_in:
@@ -71,41 +65,47 @@ else:
 
     st.title("🛒 Lista della Spesa Fab & Vik")
 
-    # Pulsante per ricaricare manualmente da Google Sheets
-    if st.button("🔄 Ricarica da Google Sheets"):
-        st.session_state.df_lista = carica_lista()
-        st.success("🔄 Lista aggiornata da Google Sheets")
+    df_lista = carica_lista()
 
-    df_lista = st.session_state.df_lista
+    # Raccogli prodotti e negozi unici per i menu a tendina
+    prodotti_esistenti = sorted(df_lista["Prodotto"].dropna().unique()) if not df_lista.empty else []
+    negozi_esistenti = sorted(df_lista["Negozio"].dropna().unique()) if not df_lista.empty else []
 
-    # Form per aggiungere prodotto
+    # ➕ Form per aggiungere prodotto
     with st.form("Aggiungi prodotto"):
-        prodotto = st.text_input("Prodotto")
+        prodotto = st.selectbox("Prodotto (scegli o scrivi)", prodotti_esistenti, index=0 if prodotti_esistenti else None, placeholder="Scrivi o scegli", key="prodotto_select")
+        prodotto_custom = st.text_input("...oppure inserisci nuovo prodotto", key="prodotto_input")
+        prodotto_finale = prodotto_custom if prodotto_custom else prodotto
+
         quantita = st.number_input("Quantità", min_value=0.0, step=1.0)
         unita = st.selectbox("Unità di misura", ["pz", "kg", "gr", "lt", "ml"])
         costo_input = st.text_input("Costo (€)", placeholder="es. 4,50")
         data_acquisto = st.text_input("Data (mm-aaaa)", placeholder="es. 05-2025")
-        negozio = st.text_input("Negozio")
+
+        negozio = st.selectbox("Negozio (scegli o scrivi)", negozi_esistenti, index=0 if negozi_esistenti else None, placeholder="Scrivi o scegli", key="negozio_select")
+        negozio_custom = st.text_input("...oppure inserisci nuovo negozio", key="negozio_input")
+        negozio_finale = negozio_custom if negozio_custom else negozio
+
         submitted = st.form_submit_button("➕ Aggiungi")
 
-        if submitted and prodotto:
+        if submitted and prodotto_finale:
             costo = costo_input.replace(",", ".").strip()
             nuovo_elemento = {
                 "✔️ Elimina": False,
-                "Prodotto": prodotto,
+                "Prodotto": prodotto_finale,
                 "Quantità": quantita,
                 "Unità": unita,
                 "Costo (€)": costo,
                 "Data": data_acquisto,
-                "Negozio": negozio,
+                "Negozio": negozio_finale,
                 "Acquistato": False
             }
             df_lista = pd.concat([df_lista, pd.DataFrame([nuovo_elemento])], ignore_index=True)
             salva_lista(df_lista)
-            st.session_state.df_lista = df_lista
             st.success("✅ Prodotto aggiunto!")
             st.rerun()
 
+    # 📋 Tabella modificabile
     if not df_lista.empty:
         st.subheader("📋 Lista Attuale")
 
@@ -128,7 +128,6 @@ else:
 
         if not df_modificato.equals(df_lista):
             salva_lista(df_modificato)
-            st.session_state.df_lista = df_modificato
             st.success("💾 Modifiche salvate!")
             st.rerun()
 
@@ -136,7 +135,6 @@ else:
             if st.button("🗑️ Rimuovi selezionati"):
                 df_modificato = df_modificato[~df_modificato["✔️ Elimina"]]
                 salva_lista(df_modificato)
-                st.session_state.df_lista = df_modificato
                 st.success("🗑️ Elementi eliminati")
                 st.rerun()
     else:
