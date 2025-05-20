@@ -73,18 +73,14 @@ else:
 
     # --- Aggiunta prodotto ---
     with st.form("Aggiungi prodotto"):
-        prodotto = st.selectbox("Prodotto", options=[""] + prodotti_esistenti) or st.text_input("Nuovo prodotto")
+        prodotto = st.selectbox("Prodotto", options=[""] + (prodotti_esistenti if prodotti_esistenti else [])) or st.text_input("Nuovo prodotto")
         quantita = st.number_input("Quantità", min_value=0.0, step=1.0)
         unita = st.selectbox("Unità di misura", ["pz", "kg", "gr", "lt", "ml"])
         costo = st.number_input("Costo (€)", min_value=0.0, format="%.2f")
-        data = st.selectbox("Data (mm-aaaa)", options=[""] + mesi_esistenti) or st.text_input("Nuova data (mm-aaaa)")
-        negozio = st.selectbox("Negozio", options=[""] + negozi_esistenti) or st.text_input("Nuovo negozio")
+        data = st.selectbox("Data (mm-aaaa)", options=[""] + (mesi_esistenti if mesi_esistenti else [])) or st.text_input("Nuova data (mm-aaaa)")
+        negozio = st.selectbox("Negozio", options=[""] + (negozi_esistenti if negozi_esistenti else [])) or st.text_input("Nuovo negozio")
         submitted = st.form_submit_button("➕ Aggiungi")
 
-with st.form("Aggiungi prodotto"):
-    prodotto = st.selectbox("Prodotto", options=[""] + (prodotti_esistenti if prodotti_esistenti else [])) or st.text_input("Nuovo prodotto")
-    quantita = st.number_input("Quantità", min_value=0.0, step=1.0)
-    unita = st.selectbox("Unità di misura", ["pz", "kg", "gr", "lt", "ml"])
 
     costo_input = st.text_input("Costo (€)", value="0,00")
     try:
