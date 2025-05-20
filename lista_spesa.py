@@ -82,7 +82,7 @@ else:
         submitted = st.form_submit_button("➕ Aggiungi")
 
 with st.form("Aggiungi prodotto"):
-    prodotto = st.selectbox("Prodotto", options=[""] + prodotti_esistenti) or st.text_input("Nuovo prodotto")
+    prodotto = st.selectbox("Prodotto", options=[""] + (prodotti_esistenti if prodotti_esistenti else [])) or st.text_input("Nuovo prodotto")
     quantita = st.number_input("Quantità", min_value=0.0, step=1.0)
     unita = st.selectbox("Unità di misura", ["pz", "kg", "gr", "lt", "ml"])
 
