@@ -1,4 +1,4 @@
-import streamlit as st
+import streamlit as st 
 import pandas as pd
 import json
 import gspread
@@ -27,7 +27,6 @@ spreadsheet = client.open_by_url(SPREADSHEET_URL)
 sheet = spreadsheet.sheet1
 
 # Caricamento dati iniziali
-@st.cache_data(ttl=60)
 def carica_lista():
     try:
         dati = sheet.get_all_records()
@@ -38,13 +37,19 @@ def carica_lista():
 
 # Salvataggio dati
 def salva_lista(df):
-    sheet.clear()
-    sheet.update([df.columns.values.tolist()] + df.values.tolist())
+    try:
+        sheet.clear()
+        sheet.update([df.columns.values.tolist()] + df.values.tolist())
+    except Exception as e:
+        st.error(f"Errore nel salvataggio: {e}")
 
 # Session state
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = ""
+
+if "df_lista" not in st.session_state:
+    st.session_state.df_lista = carica_lista()
 
 # Login
 if not st.session_state.logged_in:
@@ -66,7 +71,12 @@ else:
 
     st.title("🛒 Lista della Spesa Fab & Vik")
 
-    df_lista = carica_lista()
+    # Pulsante per ricaricare manualmente da Google Sheets
+    if st.button("🔄 Ricarica da Google Sheets"):
+        st.session_state.df_lista = carica_lista()
+        st.success("🔄 Lista aggiornata da Google Sheets")
+
+    df_lista = st.session_state.df_lista
 
     # Form per aggiungere prodotto
     with st.form("Aggiungi prodotto"):
@@ -92,6 +102,7 @@ else:
             }
             df_lista = pd.concat([df_lista, pd.DataFrame([nuovo_elemento])], ignore_index=True)
             salva_lista(df_lista)
+            st.session_state.df_lista = df_lista
             st.success("✅ Prodotto aggiunto!")
             st.rerun()
 
@@ -115,17 +126,17 @@ else:
             hide_index=True
         )
 
-        # Salvataggio modifiche
         if not df_modificato.equals(df_lista):
             salva_lista(df_modificato)
+            st.session_state.df_lista = df_modificato
             st.success("💾 Modifiche salvate!")
             st.rerun()
 
-        # Eliminazione elementi
         if df_modificato["✔️ Elimina"].any():
             if st.button("🗑️ Rimuovi selezionati"):
                 df_modificato = df_modificato[~df_modificato["✔️ Elimina"]]
                 salva_lista(df_modificato)
+                st.session_state.df_lista = df_modificato
                 st.success("🗑️ Elementi eliminati")
                 st.rerun()
     else:
