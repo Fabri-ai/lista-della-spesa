@@ -81,21 +81,36 @@ else:
         negozio = st.selectbox("Negozio", options=[""] + negozi_esistenti) or st.text_input("Nuovo negozio")
         submitted = st.form_submit_button("➕ Aggiungi")
 
-        if submitted and prodotto:
-            nuovo = {
-                "✔️ Elimina": False,
-                "Prodotto": prodotto,
-                "Quantità": quantita,
-                "Unità": unita,
-                "Costo (€)": round(costo, 2),
-                "Data": data,
-                "Negozio": negozio,
-                "Acquistato": False
-            }
-            df_lista = pd.concat([df_lista, pd.DataFrame([nuovo])], ignore_index=True)
-            msg = st.empty()
-            salva_lista(df_lista, msg)
-            st.rerun()
+with st.form("Aggiungi prodotto"):
+    prodotto = st.selectbox("Prodotto", options=[""] + prodotti_esistenti) or st.text_input("Nuovo prodotto")
+    quantita = st.number_input("Quantità", min_value=0.0, step=1.0)
+    unita = st.selectbox("Unità di misura", ["pz", "kg", "gr", "lt", "ml"])
+
+    costo_input = st.text_input("Costo (€)", value="0,00")
+    try:
+        costo = float(costo_input.replace(",", "."))
+    except ValueError:
+        costo = 0.0
+
+    data = st.selectbox("Data (mm-aaaa)", options=[""] + mesi_esistenti) or st.text_input("Nuova data (mm-aaaa)")
+    negozio = st.selectbox("Negozio", options=[""] + negozi_esistenti) or st.text_input("Nuovo negozio")
+    submitted = st.form_submit_button("➕ Aggiungi")
+
+    if submitted and prodotto:
+        nuovo = {
+            "✔️ Elimina": False,
+            "Prodotto": prodotto,
+            "Quantità": quantita,
+            "Unità": unita,
+            "Costo (€)": round(costo, 2),
+            "Data": data,
+            "Negozio": negozio,
+            "Acquistato": False
+        }
+        df_lista = pd.concat([df_lista, pd.DataFrame([nuovo])], ignore_index=True)
+        salva_lista(df_lista)
+        st.success("✅ Prodotto aggiunto!")
+        st.rerun()
 
     # --- Filtri combinabili ---
     st.subheader("🔍 Filtri")
