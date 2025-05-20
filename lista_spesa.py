@@ -144,14 +144,19 @@ else:
             salva_lista(df_lista, msg)
             st.rerun()
 
-        # --- Rimozione prodotti selezionati ---
+       # --- Rimozione prodotti selezionati ---
         if df_modificato["✔️ Elimina"].any():
             if st.button("🗑️ Rimuovi selezionati"):
-                # Fix: assicurati che "✔️ Elimina" sia booleano e senza NaN
+                # Assicuriamoci che "✔️ Elimina" sia booleano e senza NaN
                 df_lista["✔️ Elimina"] = df_lista["✔️ Elimina"].fillna(False).astype(bool)
                 df_lista = df_lista[~df_lista["✔️ Elimina"]]
                 msg = st.empty()
                 salva_lista(df_lista, msg)
+                
+                # Reset del flag elimina per evitare loop al reload
+                df_lista["✔️ Elimina"] = False
+                st.session_state["elimina_richiesto"] = False  # opzionale se usi session state per altri scopi
+                
                 st.rerun()
     else:
         st.info("La lista è vuota o nessun risultato corrisponde ai filtri.")
