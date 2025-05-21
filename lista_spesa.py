@@ -26,7 +26,15 @@ sheet = client.open_by_url(SPREADSHEET_URL).sheet1
 def carica_lista():
     try:
         dati = sheet.get_all_records()
-        return pd.DataFrame(dati)
+        df = pd.DataFrame(dati)
+        
+        # Converti correttamente la colonna del costo se presente
+        if "Costo (€)" in df.columns:
+            # Assicurati che i costi siano interpretati come numeri con punto decimale
+            df["Costo (€)"] = df["Costo (€)"].apply(
+                lambda x: float(str(x).replace(",", ".")) if pd.notna(x) else 0.0
+            )
+        return df
     except Exception as e:
         st.error(f"Errore nel caricamento dati: {e}")
         return pd.DataFrame()
@@ -34,8 +42,18 @@ def carica_lista():
 def salva_lista(df, msg_container=None):
     if msg_container:
         msg_container.info("💾 Sto salvando, attendi...")
+    
+    # Crea una copia del dataframe per evitare modifiche all'originale
+    df_da_salvare = df.copy()
+    
+    # Assicurati che il costo sia formattato correttamente per il salvataggio
+    if "Costo (€)" in df_da_salvare.columns:
+        df_da_salvare["Costo (€)"] = df_da_salvare["Costo (€)"].apply(
+            lambda x: f"{float(x):.2f}" if pd.notna(x) else "0.00"
+        )
+    
     sheet.clear()
-    sheet.update([df.columns.values.tolist()] + df.values.tolist())
+    sheet.update([df_da_salvare.columns.values.tolist()] + df_da_salvare.values.tolist())
     if msg_container:
         msg_container.success("✅ Operazione completata!")
 
@@ -145,7 +163,7 @@ else:
                 "Prodotto": st.column_config.TextColumn(),
                 "Quantità": st.column_config.NumberColumn(format="%.2f"),
                 "Unità": st.column_config.TextColumn(),
-                "Costo (€)": st.column_config.NumberColumn(format="%.2f"),
+                "Costo (€)": st.column_config.NumberColumn(format="%.2f", step=0.01),
                 "Data": st.column_config.TextColumn(help="Formato mm-aaaa"),
                 "Negozio": st.column_config.TextColumn(),
                 "Acquistato": st.column_config.CheckboxColumn()
