@@ -82,6 +82,7 @@ else:
 
         costo_input = st.text_input("Costo (€)", value="0,00")
         try:
+            # Correzione per gestire correttamente i costi con virgola
             costo = float(costo_input.replace(",", "."))
         except ValueError:
             st.warning("❌ Inserisci un costo valido (es. 3,50)")
@@ -103,7 +104,7 @@ else:
             "Prodotto": prodotto,
             "Quantità": quantita,
             "Unità": unita,
-            "Costo (€)": round(costo, 2),
+            "Costo (€)": round(costo, 2),  # Assicuriamoci che sia arrotondato a 2 decimali
             "Data": data,
             "Negozio": negozio,
             "Acquistato": False
@@ -152,21 +153,43 @@ else:
             hide_index=True
         )
 
-        # --- Salvataggio modifiche ---
-        if not df_modificato.equals(df_filtrato):
-            idx_aggiornati = df_modificato.index
-            df_lista.loc[idx_aggiornati] = df_modificato
+        # --- Salvataggio modifiche (esclusa l'eliminazione) ---
+        if not df_modificato.equals(df_filtrato) and not df_modificato["✔️ Elimina"].any():
+            # Creazione di un mapping tra i valori delle righe originali e quelle modificate
+            # per identificare quali righe nel dataframe originale devono essere aggiornate
+            for idx_filtrato, riga_filtrata in df_filtrato.iterrows():
+                for idx_lista, riga_lista in df_lista.iterrows():
+                    # Verifica se le righe corrispondono (escludendo ✔️ Elimina e Acquistato che potrebbero cambiare)
+                    if (riga_filtrata["Prodotto"] == riga_lista["Prodotto"] and 
+                        riga_filtrata["Data"] == riga_lista["Data"] and 
+                        riga_filtrata["Negozio"] == riga_lista["Negozio"]):
+                        # Aggiorna la riga nel dataframe originale con i valori modificati
+                        riga_modificata = df_modificato.loc[idx_filtrato]
+                        df_lista.loc[idx_lista] = riga_modificata
+            
             msg = st.empty()
             salva_lista(df_lista, msg)
             st.rerun()
 
         # --- Rimozione prodotti selezionati ---
-        if df_modificato["✔️ Elimina"].any():
+        elementi_da_eliminare = df_modificato["✔️ Elimina"].any()
+        if elementi_da_eliminare:
             if st.button("🗑️ Rimuovi selezionati"):
-                df_lista["✔️ Elimina"] = df_lista["✔️ Elimina"].fillna(False).astype(bool)
-                nuove_righe = df_lista[~df_lista["✔️ Elimina"]]
-                if not nuove_righe.equals(df_lista):
-                    df_lista = nuove_righe.copy()
+                # Crea una lista degli elementi da rimuovere basati sui criteri identificativi
+                righe_da_eliminare = []
+                
+                # Identifica le righe da eliminare nel dataframe originale
+                for idx_filtrato, row in df_modificato[df_modificato["✔️ Elimina"]].iterrows():
+                    # Trova la riga corrispondente nel dataframe originale
+                    for idx_lista, riga_lista in df_lista.iterrows():
+                        if (row["Prodotto"] == riga_lista["Prodotto"] and 
+                            row["Data"] == riga_lista["Data"] and 
+                            row["Negozio"] == riga_lista["Negozio"]):
+                            righe_da_eliminare.append(idx_lista)
+                
+                # Elimina le righe identificate dal dataframe originale
+                if righe_da_eliminare:
+                    df_lista = df_lista.drop(righe_da_eliminare).reset_index(drop=True)
                     msg = st.empty()
                     salva_lista(df_lista, msg)
                     st.rerun()
