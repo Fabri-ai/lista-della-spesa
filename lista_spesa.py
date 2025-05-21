@@ -85,10 +85,10 @@ def salva_lista(df, msg_container=None):
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = ""
-    
-# Aggiungi una variabile di debug per monitorare il valore di Acquistato
-if "debug_acquistato" not in st.session_state:
-    st.session_state.debug_acquistato = ""
+
+# Per evitare loop di salvataggio
+if "last_save_hash" not in st.session_state:
+    st.session_state.last_save_hash = None
 
 # --- Login ---
 if not st.session_state.logged_in:
@@ -150,7 +150,7 @@ else:
             "Prodotto": prodotto,
             "Quantità": quantita,
             "Unità": unita,
-            "Costo (€)": round(costo, 2),  # Assicuriamoci che sia arrotondato a 2 decimali
+            "Costo (€)": round(costo, 2),
             "Data": data,
             "Negozio": negozio,
             "Acquistato": False
@@ -199,71 +199,75 @@ else:
             hide_index=True,
             key="data_editor"
         )
-        
-        # Debug: mostra informazioni aggiuntive se necessario
-        # if 'debug_acquistato' in st.session_state:
-        #     st.write(st.session_state.debug_acquistato)
 
-        # --- Salvataggio modifiche (esclusa l'eliminazione) ---
-        modifiche_rilevate = not df_modificato.equals(df_filtrato)
-        eliminazioni_selezionate = df_modificato["✔️ Elimina"].any()
+        # Calcola un hash dei dati per evitare loop di salvataggio
+        current_hash = hash(str(df_modificato.values.tolist()))
         
-        if modifiche_rilevate and not eliminazioni_selezionate:
-            # Crea un nuovo dataframe per salvare tutte le modifiche
+        # --- Gestione delle modifiche e rimozioni ---
+        eliminazioni_selezionate = df_modificato["✔️ Elimina"].any()
+        modifiche_rilevate = not df_modificato.equals(df_filtrato)
+        
+        # Gestisci prima le eliminazioni
+        if eliminazioni_selezionate:
+            if st.button("🗑️ Rimuovi selezionati"):
+                # Trova le righe da eliminare
+                indici_da_eliminare = []
+                
+                for i in range(len(df_modificato)):
+                    if df_modificato.iloc[i]["✔️ Elimina"]:
+                        riga_da_eliminare = df_filtrato.iloc[i]
+                        
+                        # Trova l'indice corrispondente nel dataframe completo
+                        for idx in df_lista.index:
+                            riga_lista = df_lista.loc[idx]
+                            if (riga_da_eliminare["Prodotto"] == riga_lista["Prodotto"] and 
+                                riga_da_eliminare["Data"] == riga_lista["Data"] and 
+                                riga_da_eliminare["Negozio"] == riga_lista["Negozio"] and
+                                riga_da_eliminare["Quantità"] == riga_lista["Quantità"]):
+                                indici_da_eliminare.append(idx)
+                                break
+                
+                if indici_da_eliminare:
+                    df_lista = df_lista.drop(indici_da_eliminare).reset_index(drop=True)
+                    msg = st.empty()
+                    salva_lista(df_lista, msg)
+                    st.session_state.last_save_hash = None  # Reset hash per permettere prossimi salvataggi
+                    st.rerun()
+        
+        # Gestisci le modifiche solo se non ci sono eliminazioni selezionate
+        elif modifiche_rilevate and current_hash != st.session_state.last_save_hash:
+            # Trova e applica le modifiche
             df_aggiornato = df_lista.copy()
+            modifiche_applicate = False
             
-            # Itera attraverso il df_modificato usando l'indice di posizione invece dell'indice di etichetta
             for i in range(len(df_modificato)):
-                riga_modificata = df_modificato.iloc[i]  # Usa iloc invece di loc
-                riga_originale = df_filtrato.iloc[i]     # Riga originale nel df filtrato
+                riga_modificata = df_modificato.iloc[i]
+                riga_originale = df_filtrato.iloc[i]
                 
-                # Verifica se la riga è stata modificata (in particolare per Acquistato)
-                riga_cambiata = False
-                for col in df_modificato.columns:
-                    if riga_modificata[col] != riga_originale[col]:
-                        riga_cambiata = True
-                        break
-                
-                if riga_cambiata:
-                    # Trova la riga corrispondente nel dataframe originale
-                    for idx_lista, riga_lista in df_lista.iterrows():
+                # Verifica se la riga è stata effettivamente modificata
+                if not riga_modificata.equals(riga_originale):
+                    # Trova la riga corrispondente nel dataframe completo
+                    for idx in df_lista.index:
+                        riga_lista = df_lista.loc[idx]
                         if (riga_originale["Prodotto"] == riga_lista["Prodotto"] and 
                             riga_originale["Data"] == riga_lista["Data"] and 
-                            riga_originale["Negozio"] == riga_lista["Negozio"]):
-                            # Aggiorna la riga nel dataframe originale con i valori modificati
-                            df_aggiornato.loc[idx_lista] = riga_modificata
+                            riga_originale["Negozio"] == riga_lista["Negozio"] and
+                            riga_originale["Quantità"] == riga_lista["Quantità"]):
+                            
+                            # Aggiorna solo i campi che sono effettivamente cambiati
+                            for col in df_modificato.columns:
+                                if riga_modificata[col] != riga_originale[col]:
+                                    df_aggiornato.loc[idx, col] = riga_modificata[col]
+                            
+                            modifiche_applicate = True
+                            break
             
-            if not df_aggiornato.equals(df_lista):
+            if modifiche_applicate:
                 df_lista = df_aggiornato.copy()
                 msg = st.empty()
                 salva_lista(df_lista, msg)
+                st.session_state.last_save_hash = current_hash
                 st.rerun()
 
-        # --- Rimozione prodotti selezionati ---
-        elementi_da_eliminare = df_modificato["✔️ Elimina"].any()
-        if elementi_da_eliminare:
-            if st.button("🗑️ Rimuovi selezionati"):
-                # Crea una lista degli elementi da rimuovere basati sui criteri identificativi
-                righe_da_eliminare = []
-                
-                # Utilizza iloc per accedere alle righe in modo posizionale
-                for i in range(len(df_modificato)):
-                    if df_modificato.iloc[i]["✔️ Elimina"]:
-                        # Ottieni la riga corrispondente dal dataframe filtrato originale
-                        riga_filtrata = df_filtrato.iloc[i]
-                        
-                        # Trova la riga corrispondente nel dataframe completo
-                        for idx_lista, riga_lista in df_lista.iterrows():
-                            if (riga_filtrata["Prodotto"] == riga_lista["Prodotto"] and 
-                                riga_filtrata["Data"] == riga_lista["Data"] and 
-                                riga_filtrata["Negozio"] == riga_lista["Negozio"]):
-                                righe_da_eliminare.append(idx_lista)
-                
-                # Elimina le righe identificate dal dataframe originale
-                if righe_da_eliminare:
-                    df_lista = df_lista.drop(righe_da_eliminare).reset_index(drop=True)
-                    msg = st.empty()
-                    salva_lista(df_lista, msg)
-                    st.rerun()
     else:
         st.info("La lista è vuota o nessun risultato corrisponde ai filtri.")
