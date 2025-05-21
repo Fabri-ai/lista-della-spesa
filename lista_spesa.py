@@ -155,21 +155,30 @@ else:
 
         # --- Salvataggio modifiche (esclusa l'eliminazione) ---
         if not df_modificato.equals(df_filtrato) and not df_modificato["✔️ Elimina"].any():
-            # Creazione di un mapping tra i valori delle righe originali e quelle modificate
-            # per identificare quali righe nel dataframe originale devono essere aggiornate
-            for idx_filtrato, riga_filtrata in df_filtrato.iterrows():
-                for idx_lista, riga_lista in df_lista.iterrows():
-                    # Verifica se le righe corrispondono (escludendo ✔️ Elimina e Acquistato che potrebbero cambiare)
-                    if (riga_filtrata["Prodotto"] == riga_lista["Prodotto"] and 
-                        riga_filtrata["Data"] == riga_lista["Data"] and 
-                        riga_filtrata["Negozio"] == riga_lista["Negozio"]):
-                        # Aggiorna la riga nel dataframe originale con i valori modificati
-                        riga_modificata = df_modificato.loc[idx_filtrato]
-                        df_lista.loc[idx_lista] = riga_modificata
+            # Crea un nuovo dataframe per salvare tutte le modifiche
+            df_aggiornato = df_lista.copy()
             
-            msg = st.empty()
-            salva_lista(df_lista, msg)
-            st.rerun()
+            # Ottieni gli indici dei dataframe filtrato e modificato
+            indici_filtrato = df_filtrato.index.tolist()
+            
+            # Itera attraverso il df_modificato usando l'indice di posizione invece dell'indice di etichetta
+            for i in range(len(df_modificato)):
+                riga_modificata = df_modificato.iloc[i]  # Usa iloc invece di loc
+                riga_originale = df_filtrato.iloc[i]     # Riga originale nel df filtrato
+                
+                # Trova la riga corrispondente nel dataframe originale
+                for idx_lista, riga_lista in df_lista.iterrows():
+                    if (riga_originale["Prodotto"] == riga_lista["Prodotto"] and 
+                        riga_originale["Data"] == riga_lista["Data"] and 
+                        riga_originale["Negozio"] == riga_lista["Negozio"]):
+                        # Aggiorna la riga nel dataframe originale con i valori modificati
+                        df_aggiornato.loc[idx_lista] = riga_modificata
+            
+            if not df_aggiornato.equals(df_lista):
+                df_lista = df_aggiornato.copy()
+                msg = st.empty()
+                salva_lista(df_lista, msg)
+                st.rerun()
 
         # --- Rimozione prodotti selezionati ---
         elementi_da_eliminare = df_modificato["✔️ Elimina"].any()
@@ -178,14 +187,18 @@ else:
                 # Crea una lista degli elementi da rimuovere basati sui criteri identificativi
                 righe_da_eliminare = []
                 
-                # Identifica le righe da eliminare nel dataframe originale
-                for idx_filtrato, row in df_modificato[df_modificato["✔️ Elimina"]].iterrows():
-                    # Trova la riga corrispondente nel dataframe originale
-                    for idx_lista, riga_lista in df_lista.iterrows():
-                        if (row["Prodotto"] == riga_lista["Prodotto"] and 
-                            row["Data"] == riga_lista["Data"] and 
-                            row["Negozio"] == riga_lista["Negozio"]):
-                            righe_da_eliminare.append(idx_lista)
+                # Utilizza iloc per accedere alle righe in modo posizionale
+                for i in range(len(df_modificato)):
+                    if df_modificato.iloc[i]["✔️ Elimina"]:
+                        # Ottieni la riga corrispondente dal dataframe filtrato originale
+                        riga_filtrata = df_filtrato.iloc[i]
+                        
+                        # Trova la riga corrispondente nel dataframe completo
+                        for idx_lista, riga_lista in df_lista.iterrows():
+                            if (riga_filtrata["Prodotto"] == riga_lista["Prodotto"] and 
+                                riga_filtrata["Data"] == riga_lista["Data"] and 
+                                riga_filtrata["Negozio"] == riga_lista["Negozio"]):
+                                righe_da_eliminare.append(idx_lista)
                 
                 # Elimina le righe identificate dal dataframe originale
                 if righe_da_eliminare:
