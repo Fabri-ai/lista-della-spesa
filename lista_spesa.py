@@ -34,6 +34,19 @@ def carica_lista():
             df["Costo (€)"] = df["Costo (€)"].apply(
                 lambda x: float(str(x).replace(",", ".")) if pd.notna(x) else 0.0
             )
+        
+        # Assicurati che la colonna Acquistato sia interpretata come booleana
+        if "Acquistato" in df.columns:
+            df["Acquistato"] = df["Acquistato"].apply(
+                lambda x: True if str(x).upper() == "TRUE" else False
+            )
+            
+        # Assicurati che la colonna ✔️ Elimina sia interpretata come booleana
+        if "✔️ Elimina" in df.columns:
+            df["✔️ Elimina"] = df["✔️ Elimina"].apply(
+                lambda x: True if str(x).upper() == "TRUE" else False
+            )
+            
         return df
     except Exception as e:
         st.error(f"Errore nel caricamento dati: {e}")
@@ -52,6 +65,17 @@ def salva_lista(df, msg_container=None):
             lambda x: f"{float(x):.2f}" if pd.notna(x) else "0.00"
         )
     
+    # Assicurati che i valori booleani siano convertiti in stringhe "TRUE"/"FALSE" per Google Sheets
+    if "Acquistato" in df_da_salvare.columns:
+        df_da_salvare["Acquistato"] = df_da_salvare["Acquistato"].apply(
+            lambda x: "TRUE" if x else "FALSE"
+        )
+    
+    if "✔️ Elimina" in df_da_salvare.columns:
+        df_da_salvare["✔️ Elimina"] = df_da_salvare["✔️ Elimina"].apply(
+            lambda x: "TRUE" if x else "FALSE"
+        )
+    
     sheet.clear()
     sheet.update([df_da_salvare.columns.values.tolist()] + df_da_salvare.values.tolist())
     if msg_container:
@@ -61,6 +85,10 @@ def salva_lista(df, msg_container=None):
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
     st.session_state.username = ""
+    
+# Aggiungi una variabile di debug per monitorare il valore di Acquistato
+if "debug_acquistato" not in st.session_state:
+    st.session_state.debug_acquistato = ""
 
 # --- Login ---
 if not st.session_state.logged_in:
@@ -166,31 +194,44 @@ else:
                 "Costo (€)": st.column_config.NumberColumn(format="%.2f", step=0.01),
                 "Data": st.column_config.TextColumn(help="Formato mm-aaaa"),
                 "Negozio": st.column_config.TextColumn(),
-                "Acquistato": st.column_config.CheckboxColumn()
+                "Acquistato": st.column_config.CheckboxColumn(default=False)
             },
-            hide_index=True
+            hide_index=True,
+            key="data_editor"
         )
+        
+        # Debug: mostra informazioni aggiuntive se necessario
+        # if 'debug_acquistato' in st.session_state:
+        #     st.write(st.session_state.debug_acquistato)
 
         # --- Salvataggio modifiche (esclusa l'eliminazione) ---
-        if not df_modificato.equals(df_filtrato) and not df_modificato["✔️ Elimina"].any():
+        modifiche_rilevate = not df_modificato.equals(df_filtrato)
+        eliminazioni_selezionate = df_modificato["✔️ Elimina"].any()
+        
+        if modifiche_rilevate and not eliminazioni_selezionate:
             # Crea un nuovo dataframe per salvare tutte le modifiche
             df_aggiornato = df_lista.copy()
-            
-            # Ottieni gli indici dei dataframe filtrato e modificato
-            indici_filtrato = df_filtrato.index.tolist()
             
             # Itera attraverso il df_modificato usando l'indice di posizione invece dell'indice di etichetta
             for i in range(len(df_modificato)):
                 riga_modificata = df_modificato.iloc[i]  # Usa iloc invece di loc
                 riga_originale = df_filtrato.iloc[i]     # Riga originale nel df filtrato
                 
-                # Trova la riga corrispondente nel dataframe originale
-                for idx_lista, riga_lista in df_lista.iterrows():
-                    if (riga_originale["Prodotto"] == riga_lista["Prodotto"] and 
-                        riga_originale["Data"] == riga_lista["Data"] and 
-                        riga_originale["Negozio"] == riga_lista["Negozio"]):
-                        # Aggiorna la riga nel dataframe originale con i valori modificati
-                        df_aggiornato.loc[idx_lista] = riga_modificata
+                # Verifica se la riga è stata modificata (in particolare per Acquistato)
+                riga_cambiata = False
+                for col in df_modificato.columns:
+                    if riga_modificata[col] != riga_originale[col]:
+                        riga_cambiata = True
+                        break
+                
+                if riga_cambiata:
+                    # Trova la riga corrispondente nel dataframe originale
+                    for idx_lista, riga_lista in df_lista.iterrows():
+                        if (riga_originale["Prodotto"] == riga_lista["Prodotto"] and 
+                            riga_originale["Data"] == riga_lista["Data"] and 
+                            riga_originale["Negozio"] == riga_lista["Negozio"]):
+                            # Aggiorna la riga nel dataframe originale con i valori modificati
+                            df_aggiornato.loc[idx_lista] = riga_modificata
             
             if not df_aggiornato.equals(df_lista):
                 df_lista = df_aggiornato.copy()
